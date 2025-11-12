@@ -1,54 +1,111 @@
-import { useState } from "react";
-import io from "socket.io-client";
-import Chat from "./components/Chat";
+import React, { useEffect, useState } from "react";
+import Map, { Marker, Popup, type ViewState } from "react-map-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
+import { BellIcon, Cog6ToothIcon, MapIcon } from "@heroicons/react/24/outline";
 
-const PORT = import.meta.env.PORT || '3001';
-const VITE_SERVER_URL = import.meta.env.VITE_SERVER_URL || `http://localhost:${PORT}`;
-const socket = io(VITE_SERVER_URL);
+// Type ของ Marker
+interface MarkerType {
+  id: number;
+  latitude: number;
+  longitude: number;
+  title: string;
+  altitude?: number;
+}
 
-function App() {
-  const [username, setUsername] = useState("");
-  const [room, setRoom] = useState("");
-  const [showChat, setShowChat] = useState(false);
+// Navbar Component
+const Navbar = () => {
+  return (
+    <nav className="bg-gray-900 text-white flex justify-between items-center px-6 py-3 shadow-md">
+      <div className="flex items-center space-x-2">
+        <div className="bg-blue-600 w-8 h-8 rounded-full flex items-center justify-center font-bold">D</div>
+        <span className="text-xl font-semibold">DroneDefends</span>
+      </div>
 
-  const joinRoom = () => {
-    if (username !== "" && room !== "") {
-      socket.emit("join_room", room);
-      setShowChat(true);
-    }
-  };
+      <ul className="flex items-center space-x-6">
+        <li className="hover:text-blue-400 cursor-pointer">Dashboard</li>
+        <li className="hover:text-blue-400 cursor-pointer flex items-center">
+          <MapIcon className="w-5 h-5 mr-1" /> Map
+        </li>
+        <li className="hover:text-blue-400 cursor-pointer">Drone List</li>
+        <li className="hover:text-blue-400 cursor-pointer flex items-center">
+          <BellIcon className="w-5 h-5 mr-1" /> Alerts
+        </li>
+        <li className="hover:text-blue-400 cursor-pointer flex items-center">
+          <Cog6ToothIcon className="w-5 h-5 mr-1" /> Settings
+        </li>
+      </ul>
+
+      <div className="flex items-center space-x-3">
+        <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center font-bold cursor-pointer">U</div>
+        <span>Admin</span>
+      </div>
+    </nav>
+  );
+};
+
+// App Component
+const App = () => {
+  const [viewport, setViewport] = useState<ViewState>({
+    latitude: 13.7563,
+    longitude: 100.5018,
+    zoom: 10
+  });
+
+  const [popupInfo, setPopupInfo] = useState<MarkerType | null>(null);
+  const [markers, setMarkers] = useState<MarkerType[]>([]);
+
+  // Fetch ข้อมูลโดรนจาก backend
+  useEffect(() => {
+    fetch("http://localhost:8000/drones")
+      .then(res => res.json())
+      .then(data => setMarkers(data))
+      .catch(err => console.error(err));
+  }, []);
 
   return (
-    <div className="px-8 flex items-center justify-center text-white bg-[url(/src/assets/background.jpg)] bg-no-repeat bg-cover w-full h-screen">
-      {!showChat ? (
-        <div className="w-fit flex flex-col justify-center items-center text-center space-y-2 bg-white/10 backdrop-blur-sm rounded-xl py-8 px-4">
-          <h1 className="text-3xl font-bold">Welcome to SocketGram</h1>
-          <input
-            type="text"
-            placeholder="Your nickname"
-            onChange={(e) => setUsername(e.target.value)}
-            value={username}
-            className="outline-none text-black p-2 rounded-md overflow-hidden w-[300px]"
-          />
-          <input
-            type="text"
-            placeholder="Room ID"
-            onChange={(e) => setRoom(e.target.value)}
-            value={room}
-            className="outline-none text-black p-2 rounded-md overflow-hidden md:max-w-96 w-[300px]"
-          />
-          <button
-            onClick={joinRoom}
-            className="p-2 bg-blue-500 hover:bg-blue-700 rounded-md font-medium w-[300px]"
+    <div className="flex flex-col w-full h-screen bg-gradient-to-b from-indigo-900 to-black">
+      <Navbar />
+
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="relative w-full max-w-[1000px] h-[600px] rounded-xl border-4 border-gray-400 overflow-hidden shadow-lg">
+          <Map
+            initialViewState={viewport}
+            mapStyle="mapbox://styles/mapbox/streets-v11"
+            mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
+            style={{ width: "100%", height: "100%", borderRadius: "1rem" }}
+            onMove={(evt) => setViewport(evt.viewState)}
           >
-            Join a Room
-          </button>
+            {markers.map((marker) => (
+              <Marker
+                key={marker.id}
+                latitude={marker.latitude}
+                longitude={marker.longitude}
+              >
+                <button
+                  className="w-6 h-6 bg-red-500 rounded-full"
+                  onClick={() => setPopupInfo(marker)}
+                />
+              </Marker>
+            ))}
+
+            {popupInfo && (
+              <Popup
+                latitude={popupInfo.latitude}
+                longitude={popupInfo.longitude}
+                closeOnClick={true}
+                onClose={() => setPopupInfo(null)}
+              >
+                <div>
+                  {popupInfo.title} <br />
+                  Altitude: {popupInfo.altitude ?? "N/A"} m
+                </div>
+              </Popup>
+            )}
+          </Map>
         </div>
-      ) : (
-        <Chat socket={socket} username={username} room={room} />
-      )}
+      </div>
     </div>
   );
-}
+};
 
 export default App;
