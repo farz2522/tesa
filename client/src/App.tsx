@@ -54,12 +54,22 @@ const App = () => {
   const [popupInfo, setPopupInfo] = useState<MarkerType | null>(null);
   const [markers, setMarkers] = useState<MarkerType[]>([]);
 
-  // Fetch ข้อมูลโดรนจาก backend
+  // Fetch ข้อมูลโดรนจาก backend ทุก 3 วินาที
   useEffect(() => {
-    fetch("http://localhost:8000/drones")
-      .then(res => res.json())
-      .then(data => setMarkers(data))
-      .catch(err => console.error(err));
+    const fetchDrones = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/drones");
+        const data = await res.json();
+        console.log("Drones fetched:", data); // ตรวจสอบข้อมูล
+        setMarkers(data);
+      } catch (err) {
+        console.error("Error fetching drones:", err);
+      }
+    };
+
+    fetchDrones();
+    const interval = setInterval(fetchDrones, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -69,24 +79,28 @@ const App = () => {
       <div className="flex-1 flex items-center justify-center p-4">
         <div className="relative w-full max-w-[1000px] h-[600px] rounded-xl border-4 border-gray-400 overflow-hidden shadow-lg">
           <Map
-            initialViewState={viewport}
+            viewState={viewport} // <-- แก้ตรงนี้
+            onMove={(evt) => setViewport(evt.viewState)}
             mapStyle="mapbox://styles/mapbox/streets-v11"
             mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
             style={{ width: "100%", height: "100%", borderRadius: "1rem" }}
-            onMove={(evt) => setViewport(evt.viewState)}
           >
             {markers.map((marker) => (
               <Marker
                 key={marker.id}
                 latitude={marker.latitude}
                 longitude={marker.longitude}
+                anchor="bottom" // ให้รูปชี้ที่ตำแหน่งพิกัด
               >
-                <button
-                  className="w-6 h-6 bg-red-500 rounded-full"
+                <img
+                  src="/d.jpg" // ใส่ path รูปโดรนของคุณ
+                  alt="drone"
+                  className="w-6 h-6 cursor-pointer"
                   onClick={() => setPopupInfo(marker)}
                 />
               </Marker>
             ))}
+
 
             {popupInfo && (
               <Popup
